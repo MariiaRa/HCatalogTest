@@ -9,10 +9,9 @@ object Main extends App {
   val file = myConf.getString("hive.path")
   val dbName = myConf.getString("hive.database")
   val tableName = myConf.getString("hive.table")
+  val columnName = myConf.getString("hive.column")
 
-  val myClient = new HCatalogClient
-  val parts = myClient.getPartitionValues(dbName, tableName, file)
-  println(parts.max)
-
-
+  val myClient = new HCatalogClient(file)
+  val maxBatchId = myClient.getMaxBatchId(dbName, tableName, columnName)
+  println(s"Max batch id: $maxBatchId")
 }
