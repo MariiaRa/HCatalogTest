@@ -8,9 +8,9 @@ import scala.collection.JavaConverters._
 
 class HCatalogClient(file: String) {
 
-  val config = new Configuration()
-  config.addResource(new Path(file))
-  val hCatClient = HCatClient.create(config)
+  val hadoopConfig = new Configuration()
+  hadoopConfig.addResource(new Path(file))
+  val hCatClient = HCatClient.create(hadoopConfig)
 
   def getMaxBatchId(dbName: String, tableName: String, colName: String): Long = {
 
@@ -34,8 +34,7 @@ class HCatalogClient(file: String) {
 
   private def getPartitionValues(dbName: String, tableName: String): List[List[String]] = {
     val partitions = hCatClient.getPartitions(dbName, tableName).asScala
-    val values = partitions.map(_.getValues.asScala.toList).toList
-    values
+    partitions.map(_.getValues.asScala.toList).toList
   }
 
 }
