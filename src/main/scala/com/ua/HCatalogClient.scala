@@ -12,6 +12,14 @@ class HCatalogClient(file: String) {
   hadoopConfig.addResource(new Path(file))
   val hCatClient = HCatClient.create(hadoopConfig)
 
+  /**
+    * Retrieves max batchId
+    *
+    * @param dbName    - name of database
+    * @param tableName - name of table
+    * @param colName   - column name (batchId)
+    * @return          - max value of batchId
+    */
   def getMaxBatchId(dbName: String, tableName: String, colName: String): Long = {
 
     val partitionValues = getPartitionValues(dbName, tableName)
@@ -26,12 +34,25 @@ class HCatalogClient(file: String) {
     columnsData.max
   }
 
-
+  /**
+    * Fetches list of names of partition columns in hive table
+    *
+    * @param dbName    - name of database
+    * @param tableName - name of table
+    * @return          - list of names of partition columns
+    */
   private def getPartitionColumns(dbName: String, tableName: String): List[String] = {
-    val partCols = hCatClient.getTable(dbName, tableName).getPartCols.asScala
-    partCols.map(col => col.getName).toList
+    val partColumns = hCatClient.getTable(dbName, tableName).getPartCols.asScala
+    partColumns.map(col => col.getName).toList
   }
 
+  /**
+    * Fetches list of all partitions in hive table
+    *
+    * @param dbName    - name of database
+    * @param tableName - name of table
+    * @return          - list of all partitions in table
+    */
   private def getPartitionValues(dbName: String, tableName: String): List[List[String]] = {
     val partitions = hCatClient.getPartitions(dbName, tableName).asScala
     partitions.map(_.getValues.asScala.toList).toList
