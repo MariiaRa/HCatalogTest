@@ -12,24 +12,17 @@ class HCatalogClient(file: String) {
   config.addResource(new Path(file))
   val hCatClient = HCatClient.create(config)
 
-  def getMaxBatchId(dbName: String, tableName: String, colunmName: String): Long = {
+  def getMaxBatchId(dbName: String, tableName: String, colName: String): Long = {
 
-    /*val spec = hCatClient.getPartitionSpecs(dbName, tableName, 10).getPartitionIterator
-    while(spec.hasNext) {
-      println("part value: " + spec.next().getPartitionKeyValMap.asScala.toMap.toString())
-    }
-*/
     val partitionValues = getPartitionValues(dbName, tableName)
     val columns = getPartitionColumns(dbName, tableName)
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columns))
-      .filter { case (value, columnName) => columnName == colunmName }
+      .filter { case (value, columnName) => columnName == colName }
       .map { case (value, columnName) => value.toLong }
 
     println("List size: " + columnsData.length)
-    println("Max batch id: " + columnsData.max)
-
     columnsData.max
   }
 
