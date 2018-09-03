@@ -11,7 +11,17 @@ object Main extends App {
   val tableName = myConf.getString("hive.table")
   val columnName = myConf.getString("hive.column")
 
-  val myClient = new HCatalogClient(file)
-  val maxBatchId = myClient.getMaxBatchId(dbName, tableName, columnName)
-  println(s"Max batch id: $maxBatchId")
+  val myClient = new HiveMetastoreClient(file)
+
+  val maxBatchId = myClient.getMaxBatchId(dbName, tableName)
+  println(s"max batchId: $maxBatchId")
+
+  val maxDate = myClient.getMaxDate(dbName, tableName, "dateid")
+  println(s"Max date id: $maxDate")
+
+  val maxBatchIdrane = myClient.getMaxBatchIdRange(dbName, tableName, 1535727460003L)
+  println(s"Range: $maxBatchIdrane")
+
+  val dateRange = myClient.getDateRange(dbName, tableName, 1535727460003L)
+  println(s"Range: $dateRange")
 }
