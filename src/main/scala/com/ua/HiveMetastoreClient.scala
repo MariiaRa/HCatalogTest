@@ -4,18 +4,14 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.Path
 import org.apache.hive.hcatalog.api.HCatClient
 
 import scala.collection.JavaConverters._
 
 
-class HiveMetastoreClient(hiveConfFile: String) {
+class HiveMetastoreClient(hadoopConfig: Configuration) {
 
   private val defaultPartitionName: String = "rddid" //"batch_id"
-
-  val hadoopConfig = new Configuration()
-  hadoopConfig.addResource(new Path(hiveConfFile))
   val hCatClient: HCatClient = HCatClient.create(hadoopConfig)
 
   /**
@@ -64,11 +60,11 @@ class HiveMetastoreClient(hiveConfFile: String) {
     * @param partitionName - name of partition column with date
     * @return - max value of date in partition column
     */
-  def getMaxDate(databaseName: String, tableName: String, partitionName: String): Date = {
+  def getMaxDate(databaseName: String, tableName: String, partitionName: String, format: String): Date = {
 
-    val partitionValues = getPartitionValues(databaseName, tableName)
-    val columnNames = getPartitionColumns(databaseName, tableName)
-    val dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm")
+    val partitionValues: List[List[String]] = getPartitionValues(databaseName, tableName)
+    val columnNames: List[String] = getPartitionColumns(databaseName, tableName)
+    val dateFormat = new SimpleDateFormat(format)
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
@@ -86,11 +82,11 @@ class HiveMetastoreClient(hiveConfFile: String) {
     * @param fromBatchId  - value of batchId
     * @return - map of dates and max batchId values for given date starting from specified batchId
     */
-  def getDateRange(databaseName: String, tableName: String, fromBatchId: Long) = {
+  def getDateRange(databaseName: String, tableName: String, fromBatchId: Long, format: String) = {
 
     val partitionValues: List[List[String]] = getPartitionValues(databaseName, tableName)
 
-    val convertedList = convertColumnValue(databaseName: String, tableName: String, partitionValues)
+    val convertedList = convertColumnValue(databaseName: String, tableName: String, partitionValues, format)
       .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
       .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
 
@@ -117,8 +113,8 @@ class HiveMetastoreClient(hiveConfFile: String) {
     * @return - list of all partitions in table
     */
   private def getPartitionValues(databaseName: String, tableName: String): List[List[String]] = {
-    val partitions = hCatClient.getPartitions(databaseName, tableName).asScala.toList
-    partitions.map(_.getValues.asScala.toList)
+    val partitions = hCatClient.getPartitions(databaseName, tableName).asScala
+    partitions.map(_.getValues.asScala.toList).toList
   }
 
   private def getColumnTypes(databaseName: String, tableName: String): Map[String, String] = {
@@ -126,16 +122,17 @@ class HiveMetastoreClient(hiveConfFile: String) {
     partColumns.map(column => column.getName -> column.getTypeInfo.getTypeName).toMap
   }
 
-  private def convertColumnValue(databaseName: String, tableName: String, list: List[List[String]]) = {
+  private def convertColumnValue(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
     val mapOfTypes = getColumnTypes(databaseName, tableName)
     val columnNames = getPartitionColumns(databaseName, tableName)
-    val dateFormat = new SimpleDateFormat("yyyy-MM-dd-HH-mm")
+    val dateFormat = new SimpleDateFormat(format)
 
-    list.map(value => value.zip(columnNames)).map { list =>
-      list.map { elem =>
-        mapOfTypes(elem._2) match {
-          case "string" => dateFormat.parse(elem._1) //should be date in hive table
-          case "bigint" => elem._1.toLong
+    list.map(listOfValues => listOfValues.zip(columnNames)).map { listOfTuples =>
+      listOfTuples.map { case (value, columnName) =>
+        mapOfTypes(columnName) match {
+          case "string" => dateFormat.parse(value) //should be date in hive table
+          case "bigint" => value.toLong
+          case _ => value
         }
       }
     }
