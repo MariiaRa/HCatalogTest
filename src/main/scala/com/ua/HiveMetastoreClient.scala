@@ -4,7 +4,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hive.hcatalog.api.HCatClient
+import org.apache.hive.hcatalog.api._
 
 import scala.collection.JavaConverters._
 
