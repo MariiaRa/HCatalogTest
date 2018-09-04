@@ -17,10 +17,12 @@ object TestHCatClient {
   val partitionKeyValuesTwo = Map[String, String]("dateid" -> "2018-08-31-17-57", "rddid" -> "1535727475002").asJava
   val partitionKeyValuesThree = Map[String, String]("dateid" -> "2018-08-31-17-57", "rddid" -> "1535727445003").asJava
   val partitionKeyValuesFour = Map[String, String]("dateid" -> "2018-08-31-17-57", "rddid" -> "1535727420003").asJava
+  val defaultPartitionName: String = "rddid"
 }
 
 class TestHCatClient {
-  private val defaultPartitionName: String = "rddid"
+
+  import TestHCatClient._
 
   private def createTable(): HCatTable = {
     val table: HCatTable = new HCatTable("database", "table")
@@ -36,8 +38,6 @@ class TestHCatClient {
 
 
   private def getPartition(): java.util.List[HCatPartition] = {
-    import TestHCatClient._
-
     val table = createTable()
     val partitionOne = new HCatPartition(table, partitionKeyValuesOne, "file/path")
     val partitionTwo = new HCatPartition(table, partitionKeyValuesTwo, "file/path")
@@ -49,10 +49,9 @@ class TestHCatClient {
 
   def getMaxBatchId(databaseName: String, tableName: String): Long = {
     val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
-    val columns = TestHCatClient.columns
 
     val columnsData = partitionValues
-      .flatMap(value => value.zip(columns))
+      .flatMap(value => value.zip(TestHCatClient.columns))
       .filter { case (value, columnName) => columnName == defaultPartitionName }
       .map { case (value, columnName) => value.toLong }
 
@@ -61,45 +60,43 @@ class TestHCatClient {
 
   def getMaxBatchIdRange(databaseName: String, tableName: String, fromBatchId: Long): List[Long] = {
     val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
-    val columns = TestHCatClient.columns
 
     val columnsData = partitionValues
-      .flatMap(value => value.zip(columns))
+      .flatMap(value => value.zip(TestHCatClient.columns))
       .filter { case (value, columnName) => columnName == defaultPartitionName }
       .map { case (value, columnName) => value.toLong }
       .dropWhile(value => !(value == fromBatchId))
+
     columnsData.sortWith(_ < _)
   }
 
   def getMaxDate(databaseName: String, tableName: String, partitionName: String, format: String): Date = {
-
     val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
-    val columns = TestHCatClient.columns
     val dateFormat = new SimpleDateFormat(format)
 
     val columnsData = partitionValues
-      .flatMap(value => value.zip(columns))
+      .flatMap(value => value.zip(TestHCatClient.columns))
       .filter { case (value, columnName) => columnName == partitionName }
       .map { case (value, columnName) => dateFormat.parse(value) }
+
     columnsData.max
   }
 
   def getDateRange(databaseName: String, tableName: String, fromBatchId: Long, format: String) = {
-
     val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
 
     val convertedList = convertColumnValue(databaseName: String, tableName: String, partitionValues, format)
       .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
       .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
+
     convertedList
   }
 
   private def convertColumnValue(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
     val mapOfTypes = Map("dateid" -> "string", "rddid" -> "bigint")
-    val columnNames = TestHCatClient.columns
     val dateFormat = new SimpleDateFormat(format)
 
-    list.map(listOfValues => listOfValues.zip(columnNames)).map { listOfTuples =>
+    list.map(listOfValues => listOfValues.zip(TestHCatClient.columns)).map { listOfTuples =>
       listOfTuples.map { case (value, columnName) =>
         mapOfTypes(columnName) match {
           case "string" => dateFormat.parse(value) //should be date in hive table
