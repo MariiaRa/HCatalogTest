@@ -25,7 +25,6 @@ object Main extends App {
   println(s"Max date id: $maxDate")
 
   val maxBatchIdrane = myClient.getMaxBatchIdRange(dbName, tableName, 1535641220002L)
-  println(s"Range: $maxBatchIdrane")
 
   val dateRange = myClient.getDateRange(dbName, tableName, 1535641220002L, dateFormat)
   println(s"Range: $dateRange")
