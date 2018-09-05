@@ -11,7 +11,7 @@ class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSu
   private val dateFormat = new java.text.SimpleDateFormat(format)
 
   private val expectedMaxBatchId = 1535727475002L
-  private val expectedBatchIdRangeResult = List(1535727420003L, 1535727445003L, 1535727475002L)
+  private val expectedBatchIdRangeResult = List(1535719375004L, 1535727420003L, 1535727445003L, 1535727475002L)
   private val expectedDate: Date = dateFormat.parse("2018-08-31")
   private val expectedMap = Map[Any, Any](expectedDate -> 1535727475002L)
 
@@ -29,7 +29,7 @@ class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSu
   }
 
   test("getMaxDate(valid table, partitionKey) returns max date") {
-    val actualMaxDate = myHCatclient.getMaxDate("database", "table", "dateid", format)
+    val actualMaxDate = myHCatclient.getMaxDate("database", "table", "date", format)
     assert(expectedDate === actualMaxDate)
   }
 
