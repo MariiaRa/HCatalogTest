@@ -28,12 +28,12 @@ class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSu
     assert(expectedBatchIdRangeResult === actualBatchIdRangeResult)
   }
 
-  test("getMaxDate(valid table, partitionKey) returns max date") {
+  test("getMaxDate(valid table, partitionName) returns max date") {
     val actualMaxDate = myHCatclient.getMaxDate("database", "table", "date", format)
     assert(expectedDate === actualMaxDate)
   }
 
-  test("getDateRange(valid table, from batch) returns map with dates and max batchId") {
+  test("getDateRange(valid table, from batchId) returns map with dates and max batchIds") {
     val actualMap = myHCatclient.getDateRange("database", "table", 1535727475002L, format)
     assert(expectedMap === actualMap)
   }
