@@ -10,26 +10,12 @@ import org.apache.hive.hcatalog.data.schema.HCatFieldSchema.Type
 
 import scala.collection.JavaConverters._
 
-
-object TestHCatClient {
-  val batchIdPartitionName: String = "batch_id"
-  val datePartitionName: String = "date"
-  val partColumnsNames = List(datePartitionName, batchIdPartitionName)
-  val partitionKeyValues1 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613940012").asJava
-  val partitionKeyValues2 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727475002").asJava
-  val partitionKeyValues3 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727445003").asJava
-  val partitionKeyValues4 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727420003").asJava
-  val partitionKeyValues5 = Map[String, String](datePartitionName -> "2018-08-31-15-42", batchIdPartitionName -> "1535719375004").asJava
-  val path = "path/file"
-  val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
-}
-
-class TestHCatClient {
+class TestHCatClient(databaseName: String, tableName: String) {
 
   import TestHCatClient._
 
-  private def createTable(): HCatTable = {
-    val table: HCatTable = new HCatTable("database", "table")
+  private def createTable(databaseName: String, tableName: String): HCatTable = {
+    val table: HCatTable = new HCatTable(databaseName, tableName)
     val colOne = new HCatFieldSchema("id", Type.STRING, null)
     val colTwo = new HCatFieldSchema("value", Type.DECIMAL, null)
     val columns = List(colOne, colTwo).asJava
@@ -42,7 +28,7 @@ class TestHCatClient {
 
 
   private def getPartition(): java.util.List[HCatPartition] = {
-    val table = createTable()
+    val table = createTable(databaseName, tableName)
     val partition1 = new HCatPartition(table, partitionKeyValues1, path)
     val partition2 = new HCatPartition(table, partitionKeyValues2, path)
     val partition3 = new HCatPartition(table, partitionKeyValues3, path)
@@ -52,7 +38,7 @@ class TestHCatClient {
   }
 
 
-  def getMaxBatchId(databaseName: String, tableName: String): Long = {
+  def getMaxBatchId(): Long = {
     val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
 
     val columnsData = partitionValues
@@ -63,7 +49,7 @@ class TestHCatClient {
     columnsData.max
   }
 
-  def getMaxBatchIdRange(databaseName: String, tableName: String, fromBatchId: Long): List[Long] = {
+  def getMaxBatchIdRange(fromBatchId: Long): List[Long] = {
     val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
 
     val columnsData = partitionValues
@@ -75,7 +61,7 @@ class TestHCatClient {
     columnsData.sortWith(_ < _)
   }
 
-  def getMaxDate(databaseName: String, tableName: String, partitionName: String, format: String): Date = {
+  def getMaxDate(partitionName: String, format: String): Date = {
     val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
     val dateFormat = new SimpleDateFormat(format)
 
@@ -83,21 +69,21 @@ class TestHCatClient {
       .flatMap(value => value.zip(partColumnsNames))
       .filter { case (value, columnName) => columnName == datePartitionName }
       .map { case (value, columnName) => dateFormat.parse(value) }
-    println(columnsData)
+
     columnsData.max
   }
 
-  def getDateRange(databaseName: String, tableName: String, fromBatchId: Long, format: String) = {
+  def getDateRange(fromBatchId: Long, format: String) = {
     val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
 
-    val convertedList = convertColumnType(databaseName: String, tableName: String, partitionValues, format)
+    val convertedList = convertColumnType(partitionValues, format)
       .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
       .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
 
     convertedList
   }
 
-  private def convertColumnType(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
+  private def convertColumnType(list: List[List[String]], format: String) = {
 
     val dateFormat = new SimpleDateFormat(format)
 
@@ -111,4 +97,17 @@ class TestHCatClient {
       }
     }
   }
+}
+
+object TestHCatClient {
+  val batchIdPartitionName: String = "batch_id"
+  val datePartitionName: String = "date"
+  val partColumnsNames = List(datePartitionName, batchIdPartitionName)
+  val partitionKeyValues1 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613940012").asJava
+  val partitionKeyValues2 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727475002").asJava
+  val partitionKeyValues3 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727445003").asJava
+  val partitionKeyValues4 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727420003").asJava
+  val partitionKeyValues5 = Map[String, String](datePartitionName -> "2018-08-31-15-42", batchIdPartitionName -> "1535719375004").asJava
+  val path = "path/file"
+  val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
 }
