@@ -7,6 +7,8 @@ import org.scalatest.{FunSuite, MustMatchers}
 
 class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSugar {
 
+  private val databaseName = "database"
+  private val tableName = "table"
   private val format = "yyyy-MM-dd"
   private val dateFormat = new java.text.SimpleDateFormat(format)
 
@@ -15,26 +17,26 @@ class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSu
   private val expectedDate: Date = dateFormat.parse("2018-08-31")
   private val expectedMap = Map[Any, Any](expectedDate -> 1535727475002L)
 
-  private val myHCatclient = new TestHCatClient
+  private val myHCatclient = new TestHCatClient(databaseName, tableName)
 
 
   test("getMaxBatchId(valid table) returns max batchId") {
-    val actualMaxBatchId = myHCatclient.getMaxBatchId("database", "table")
+    val actualMaxBatchId = myHCatclient.getMaxBatchId()
     assert(expectedMaxBatchId === actualMaxBatchId)
   }
 
   test("getMaxBatchRange(valid table, from batchId) returns max batchId range") {
-    val actualBatchIdRangeResult = myHCatclient.getMaxBatchIdRange("database", "table", 1535727475002L)
+    val actualBatchIdRangeResult = myHCatclient.getMaxBatchIdRange(1535727475002L)
     assert(expectedBatchIdRangeResult === actualBatchIdRangeResult)
   }
 
   test("getMaxDate(valid table, partitionName) returns max date") {
-    val actualMaxDate = myHCatclient.getMaxDate("database", "table", "date", format)
+    val actualMaxDate = myHCatclient.getMaxDate("date", format)
     assert(expectedDate === actualMaxDate)
   }
 
   test("getDateRange(valid table, from batchId) returns map with dates and max batchIds") {
-    val actualMap = myHCatclient.getDateRange("database", "table", 1535727475002L, format)
+    val actualMap = myHCatclient.getDateRange(1535727475002L, format)
     assert(expectedMap === actualMap)
   }
 }
