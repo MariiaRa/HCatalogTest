@@ -13,16 +13,23 @@ object Main extends App {
   val dateFormat = "yyyy-MM-dd"
   val hadoopConfig = new Configuration()
 
-  val myClient = new HiveMetastoreClient(hadoopConfig)
+  val myClient = HiveMetastoreClient.apply(
+    "jdbc:postgresql://hive-metastore-postgresql/metastore",
+    "org.postgresql.Driver",
+    "hive",
+    "hive",
+    "thrift://hive-metastore:9083",
+    "default"
+  )
 
-  val maxBatchId = myClient.getMaxBatchId(dbName, tableName)
+  val maxBatchId = myClient.getMaxBatchId(tableName)
   println(s"max batchId: $maxBatchId")
 
-  val maxDate = myClient.getMaxDate(dbName, tableName, "dateid", dateFormat)
+  val maxDate = myClient.getMaxDate(tableName, "dateid", dateFormat)
   println(s"Max date id: $maxDate")
 
-  val maxBatchIdrane = myClient.getMaxBatchIdRange(dbName, tableName, 1535641220002L)
+  val maxBatchIdrane = myClient.getMaxBatchIdRange(tableName, 1535641220002L)
 
-  val dateRange = myClient.getDateRange(dbName, tableName, 1535641220002L, dateFormat)
+  val dateRange = myClient.getDateRange(tableName, 1535641220002L, dateFormat)
   println(s"Range: $dateRange")
 }
