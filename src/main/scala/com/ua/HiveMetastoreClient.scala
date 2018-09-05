@@ -118,6 +118,7 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   }
 
   /**
+    * Creates map of column names and its types
     *
     * @param databaseName - name of database
     * @param tableName    - name of table
@@ -129,6 +130,7 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   }
 
   /**
+    * Convert values to type according to types in hive table
     *
     * @param databaseName - name of database
     * @param tableName    - name of table
