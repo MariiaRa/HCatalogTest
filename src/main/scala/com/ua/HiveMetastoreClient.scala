@@ -9,25 +9,18 @@ import org.apache.hive.hcatalog.api._
 import scala.collection.JavaConverters._
 
 
-class HiveMetastoreClient(hadoopConfig: Configuration) {
+class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
-  private val defaultPartitionName: String = "rddid" //"batch_id"
-  hadoopConfig.set("javax.jdo.option.ConnectionURL", "jdbc:postgresql://hive-metastore-postgresql/metastore")
-  hadoopConfig.set("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
-  hadoopConfig.set("javax.jdo.option.ConnectionPassword", "hive")
-  hadoopConfig.set("javax.jdo.option.ConnectionUserName", "hive")
-  hadoopConfig.set("hive.metastore.uris", "thrift://hive-metastore:9083")
-  private val hCatClient: HCatClient = HCatClient.create(hadoopConfig)
-
+  import HiveMetastoreClient._
   /**
     * Retrieves max batchId
     *
     * @param tableName - name of table
-    * @return          - max value of batchId
+    * @return - max value of batchId
     */
-  def getMaxBatchId(databaseName: String, tableName: String): Long = {
-    val partitionValues = getPartitionValues(databaseName, tableName)
-    val columnNames = getPartitionColumns(databaseName, tableName)
+  def getMaxBatchId(tableName: String): Long = {
+    val partitionValues = getPartitionValues(tableName)
+    val columnNames = getPartitionColumns(tableName)
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
@@ -42,11 +35,11 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     *
     * @param tableName   - name of table
     * @param fromBatchId - value of batchId
-    * @return            - batchId range sorted in ascending order
+    * @return - batchId range sorted in ascending order
     */
-  def getMaxBatchIdRange(databaseName: String, tableName: String, fromBatchId: Long): List[Long] = {
-    val partitionValues = getPartitionValues(databaseName, tableName)
-    val columnNames = getPartitionColumns(databaseName, tableName)
+  def getMaxBatchIdRange(tableName: String, fromBatchId: Long): List[Long] = {
+    val partitionValues = getPartitionValues(tableName)
+    val columnNames = getPartitionColumns(tableName)
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
@@ -60,15 +53,14 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Retrieves max date
     *
-    * @param databaseName  - name of database
     * @param tableName     - name of table
     * @param partitionName - name of partition column with date
-    * @return              - max value of date in partition column
+    * @return - max value of date in partition column
     */
-  def getMaxDate(databaseName: String, tableName: String, partitionName: String, format: String): Date = {
+  def getMaxDate(tableName: String, partitionName: String, format: String): Date = {
 
-    val partitionValues = getPartitionValues(databaseName, tableName)
-    val columnNames = getPartitionColumns(databaseName, tableName)
+    val partitionValues = getPartitionValues(tableName)
+    val columnNames = getPartitionColumns(tableName)
     val dateFormat = new SimpleDateFormat(format)
 
     val columnsData = partitionValues
@@ -82,16 +74,15 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Retrieves map of dates and max batchId values for given date starting from specified batchId
     *
-    * @param databaseName - name of database
     * @param tableName    - name of table
     * @param fromBatchId  - value of batchId
-    * @return             - map of dates and max batchId values for given date starting from specified batchId
+    * @return - map of dates and max batchId values for given date starting from specified batchId
     */
-  def getDateRange(databaseName: String, tableName: String, fromBatchId: Long, format: String) = {
+  def getDateRange(tableName: String, fromBatchId: Long, format: String) = {
 
-    val partitionValues: List[List[String]] = getPartitionValues(databaseName, tableName)
+    val partitionValues: List[List[String]] = getPartitionValues(tableName)
 
-    val convertedList = convertColumnType(databaseName: String, tableName: String, partitionValues, format)
+    val convertedList = convertColumnType(tableName: String, partitionValues, format)
       .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
       .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
 
@@ -101,11 +92,10 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Fetches list of names of partition columns in hive table
     *
-    * @param databaseName - name of database
     * @param tableName    - name of table
-    * @return             - list of names of partition columns
+    * @return - list of names of partition columns
     */
-  private def getPartitionColumns(databaseName: String, tableName: String): List[String] = {
+  private def getPartitionColumns(tableName: String): List[String] = {
     val partColumns = hCatClient.getTable(databaseName, tableName).getPartCols.asScala
     partColumns.map(_.getName).toList
   }
@@ -113,11 +103,10 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Fetches list of all partitions in hive table
     *
-    * @param databaseName - name of database
     * @param tableName    - name of table
-    * @return             - list of all partitions in table
+    * @return - list of all partitions in table
     */
-  private def getPartitionValues(databaseName: String, tableName: String): List[List[String]] = {
+  private def getPartitionValues(tableName: String): List[List[String]] = {
     val partitions = hCatClient.getPartitions(databaseName, tableName).asScala
     partitions.map(_.getValues.asScala.toList).toList
   }
@@ -125,11 +114,10 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Creates map of column names and its types
     *
-    * @param databaseName - name of database
     * @param tableName    - name of table
-    * @return             - map of column names and its types
+    * @return - map of column names and its types
     */
-  private def getPartColumnTypes(databaseName: String, tableName: String): Map[String, String] = {
+  private def getPartColumnTypes(tableName: String): Map[String, String] = {
     val partColumns = hCatClient.getTable(databaseName, tableName).getPartCols.asScala
     partColumns.map(column => column.getName -> column.getTypeInfo.getTypeName).toMap
   }
@@ -137,15 +125,14 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
   /**
     * Convert values to type according to types in hive table
     *
-    * @param databaseName - name of database
     * @param tableName    - name of table
     * @param list         - list of partition values
     * @param format       - date format (e.g., )
-    * @return             - list of partition values with converted types according to hive table
+    * @return - list of partition values with converted types according to hive table
     */
-  private def convertColumnType(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
-    val mapOfTypes = getPartColumnTypes(databaseName, tableName)
-    val columnNames = getPartitionColumns(databaseName, tableName)
+  private def convertColumnType(tableName: String, list: List[List[String]], format: String) = {
+    val mapOfTypes = getPartColumnTypes(tableName)
+    val columnNames = getPartitionColumns(tableName)
     val dateFormat = new SimpleDateFormat(format)
 
     list.map(listOfValues => listOfValues.zip(columnNames)).map { listOfTuples =>
@@ -157,5 +144,24 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
         }
       }
     }
+  }
+}
+
+object HiveMetastoreClient {
+
+  val defaultPartitionName: String = "rddid" //"batch_id"
+
+  def apply(metastoreConnectionURL: String, metastoreConnectionDriverName: String,
+            metastoreUserName: String, metastorePassword: String, metastoreUris: String,
+            hiveDbName: String): HiveMetastoreClient = {
+
+    val hadoopConfig = new Configuration()
+    hadoopConfig.set("javax.jdo.option.ConnectionURL", metastoreConnectionURL)
+    hadoopConfig.set("javax.jdo.option.ConnectionDriverName", metastoreConnectionDriverName)
+    hadoopConfig.set("javax.jdo.option.ConnectionPassword", metastoreUserName)
+    hadoopConfig.set("javax.jdo.option.ConnectionUserName", metastorePassword)
+    hadoopConfig.set("hive.metastore.uris", metastoreUris)
+
+    new HiveMetastoreClient(HCatClient.create(hadoopConfig), hiveDbName)
   }
 }
