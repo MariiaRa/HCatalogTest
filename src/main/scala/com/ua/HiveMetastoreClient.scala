@@ -12,20 +12,20 @@ import scala.collection.JavaConverters._
 class HiveMetastoreClient(hadoopConfig: Configuration) {
 
   private val defaultPartitionName: String = "rddid" //"batch_id"
-  val hCatClient: HCatClient = HCatClient.create(hadoopConfig)
+  private val hCatClient: HCatClient = HCatClient.create(hadoopConfig)
 
   /**
     * Retrieves max batchId
     *
     * @param tableName - name of table
-    * @return - max value of batchId
+    * @return          - max value of batchId
     */
   def getMaxBatchId(databaseName: String, tableName: String): Long = {
     val partitionValues = getPartitionValues(databaseName, tableName)
-    val columns = getPartitionColumns(databaseName, tableName)
+    val columnNames = getPartitionColumns(databaseName, tableName)
 
     val columnsData = partitionValues
-      .flatMap(value => value.zip(columns))
+      .flatMap(value => value.zip(columnNames))
       .filter { case (value, columnName) => columnName == defaultPartitionName }
       .map { case (value, columnName) => value.toLong }
 
@@ -37,14 +37,14 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     *
     * @param tableName   - name of table
     * @param fromBatchId - value of batchId
-    * @return - batchId range sorted in ascending order
+    * @return            - batchId range sorted in ascending order
     */
   def getMaxBatchIdRange(databaseName: String, tableName: String, fromBatchId: Long): List[Long] = {
     val partitionValues = getPartitionValues(databaseName, tableName)
-    val columns = getPartitionColumns(databaseName, tableName)
+    val columnNames = getPartitionColumns(databaseName, tableName)
 
     val columnsData = partitionValues
-      .flatMap(value => value.zip(columns))
+      .flatMap(value => value.zip(columnNames))
       .filter { case (value, columnName) => columnName == defaultPartitionName }
       .map { case (value, columnName) => value.toLong }
       .dropWhile(value => !(value == fromBatchId))
@@ -58,12 +58,12 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     * @param databaseName  - name of database
     * @param tableName     - name of table
     * @param partitionName - name of partition column with date
-    * @return - max value of date in partition column
+    * @return              - max value of date in partition column
     */
   def getMaxDate(databaseName: String, tableName: String, partitionName: String, format: String): Date = {
 
-    val partitionValues: List[List[String]] = getPartitionValues(databaseName, tableName)
-    val columnNames: List[String] = getPartitionColumns(databaseName, tableName)
+    val partitionValues = getPartitionValues(databaseName, tableName)
+    val columnNames = getPartitionColumns(databaseName, tableName)
     val dateFormat = new SimpleDateFormat(format)
 
     val columnsData = partitionValues
@@ -80,13 +80,13 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     * @param databaseName - name of database
     * @param tableName    - name of table
     * @param fromBatchId  - value of batchId
-    * @return - map of dates and max batchId values for given date starting from specified batchId
+    * @return             - map of dates and max batchId values for given date starting from specified batchId
     */
   def getDateRange(databaseName: String, tableName: String, fromBatchId: Long, format: String) = {
 
     val partitionValues: List[List[String]] = getPartitionValues(databaseName, tableName)
 
-    val convertedList = convertColumnValue(databaseName: String, tableName: String, partitionValues, format)
+    val convertedList = convertColumnType(databaseName: String, tableName: String, partitionValues, format)
       .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
       .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
 
@@ -98,11 +98,11 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     *
     * @param databaseName - name of database
     * @param tableName    - name of table
-    * @return - list of names of partition columns
+    * @return             - list of names of partition columns
     */
   private def getPartitionColumns(databaseName: String, tableName: String): List[String] = {
     val partColumns = hCatClient.getTable(databaseName, tableName).getPartCols.asScala
-    partColumns.map(col => col.getName).toList
+    partColumns.map(_.getName).toList
   }
 
   /**
@@ -110,29 +110,43 @@ class HiveMetastoreClient(hadoopConfig: Configuration) {
     *
     * @param databaseName - name of database
     * @param tableName    - name of table
-    * @return - list of all partitions in table
+    * @return             - list of all partitions in table
     */
   private def getPartitionValues(databaseName: String, tableName: String): List[List[String]] = {
     val partitions = hCatClient.getPartitions(databaseName, tableName).asScala
     partitions.map(_.getValues.asScala.toList).toList
   }
 
-  private def getColumnTypes(databaseName: String, tableName: String): Map[String, String] = {
+  /**
+    *
+    * @param databaseName - name of database
+    * @param tableName    - name of table
+    * @return             - map of column names and its types
+    */
+  private def getPartColumnTypes(databaseName: String, tableName: String): Map[String, String] = {
     val partColumns = hCatClient.getTable(databaseName, tableName).getPartCols.asScala
     partColumns.map(column => column.getName -> column.getTypeInfo.getTypeName).toMap
   }
 
-  private def convertColumnValue(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
-    val mapOfTypes = getColumnTypes(databaseName, tableName)
+  /**
+    *
+    * @param databaseName - name of database
+    * @param tableName    - name of table
+    * @param list         - list of partition values
+    * @param format       - date format (e.g., )
+    * @return             - list of partition values with converted types according to hive table
+    */
+  private def convertColumnType(databaseName: String, tableName: String, list: List[List[String]], format: String) = {
+    val mapOfTypes = getPartColumnTypes(databaseName, tableName)
     val columnNames = getPartitionColumns(databaseName, tableName)
     val dateFormat = new SimpleDateFormat(format)
 
     list.map(listOfValues => listOfValues.zip(columnNames)).map { listOfTuples =>
       listOfTuples.map { case (value, columnName) =>
         mapOfTypes(columnName) match {
-          case "string" => dateFormat.parse(value) //should be date in hive table
+          case "string" => dateFormat.parse(value)
           case "bigint" => value.toLong
-          case _ => value
+          case _        => value
         }
       }
     }
