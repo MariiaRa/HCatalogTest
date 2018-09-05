@@ -2,10 +2,9 @@ package com.ua
 
 import java.util.Date
 
-import org.scalatest.mockito.MockitoSugar
-import org.scalatest.{FunSuite, MustMatchers}
+import org.scalatest.FunSuite
 
-class HiveMetastoreClientSuite extends FunSuite with MustMatchers with MockitoSugar {
+class HiveMetastoreClientSuite extends FunSuite{
 
   private val databaseName = "database"
   private val tableName = "table"
