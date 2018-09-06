@@ -4,6 +4,7 @@ package com.ua
 import com.typesafe.config.{Config, ConfigFactory}
 import org.apache.hadoop.conf.Configuration
 
+
 object Main extends App {
 
   val myConf: Config = ConfigFactory.load()
@@ -25,11 +26,18 @@ object Main extends App {
   val maxBatchId = myClient.getMaxBatchId(tableName)
   println(s"max batchId: $maxBatchId")
 
-  val maxDate = myClient.getMaxDate(tableName, "dateid", dateFormat)
+  val maxDate = myClient.getMaxDate(tableName, "dateid")
   println(s"Max date id: $maxDate")
 
-  val maxBatchIdrane = myClient.getMaxBatchIdRange(tableName, 1535641220002L)
+  val maxBatchIdRange = myClient.getBatchIdRange(1535727470003L, tableName)
+  println(s"Batchid range: $maxBatchIdRange")
 
-  val dateRange = myClient.getDateRange(tableName, 1535641220002L, dateFormat)
-  println(s"Range: $dateRange")
+  val dateRange = myClient.getDateRange(tableName, 1535727470003L)
+  println(s"Date map: $dateRange")
+
+  val maxBatchIdwithFilter = myClient.getMaxBatchId(tableName, "dateid", "2018-08-31-17-57")
+  println(s"max batchId with filter: $maxBatchIdwithFilter")
+
+  val dateRangeTwo = myClient.getDateRange(tableName, 1535727470003L, "rddid", "2018-08-31-17-57")
+  println(s"Date map with filter: $dateRangeTwo")
 }
