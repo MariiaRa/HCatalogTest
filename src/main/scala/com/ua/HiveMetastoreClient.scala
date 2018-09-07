@@ -60,16 +60,20 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @return - batchId range sorted in ascending order
     */
   def getBatchIdRange(fromBatchId: Long, tableName: String, filter: PartitionFilter = None): List[Long] = {
-    val partitionValues = getPartitionValues(tableName, filter)
+    val partitionValues = getPartitionValues(tableName, None)
+    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
     val columnNames = getPartitionColumns(tableName)
 
-    val columnsData = partitionValues
-      .flatMap(value => value.zip(columnNames))
-      .filter { case (value, columnName) => columnName == defaultPartitionName }
-      .map { case (value, columnName) => value.toLong }
-      .dropWhile(value => !(value == fromBatchId))
-
-    columnsData.sortWith(_ < _)
+    filter match {
+      case Some((name: String, value: String)) => {
+        val columnNames = getPartitionColumns(tableName)
+        xs
+          .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
+          .sortWith(_.last._1.toLong < _.last._1.toLong)
+          .map(_.last._1.toLong)
+      }
+      case None => xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
+    }
   }
 
   def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxBatchId(tableName)
@@ -90,7 +94,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     val partitionValues = getPartitionValues(tableName, None)
     val columnNames = getPartitionColumns(tableName)
     val format = new SimpleDateFormat(dateFormat)
-    // val formatter: DateTimeFormatter = DateTimeFormatter.ofPattern(dateFormat)
+
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
       .filter { case (value, columnName) => columnName == partitionName }
@@ -120,13 +124,16 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     val format = new SimpleDateFormat(dateFormat) //thread safe???
     val partitionValues = getPartitionValues(tableName, None)
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+    val columnNames = getPartitionColumns(tableName)
 
-    xs.filter(_.head == filterValue).sortWith(_.last.toLong < _.last.toLong).map(list => format.parse(list.head) -> list.last.toLong).toMap
+    xs
+      .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
+      .sortWith(_.last._1.toLong < _.last._1.toLong)
+      .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
   def getDateRange(tableName: String, fromBatchId: Long): Map[Date, Long] = {
     val partitionValues: List[List[String]] = getPartitionValues(tableName, None)
-    val columnNames = getPartitionColumns(tableName)
     val format = new SimpleDateFormat(dateFormat)
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
 
@@ -148,7 +155,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * Fetches list of all partitions in hive table
     *
     * @param tableName - name of table
-    * @return - list of all partitions in table
+    * @return - list of all partition values in table
     */
   private def getPartitionValues(tableName: String, partitionFilter: Option[(String, String)]): List[List[String]] = {
     partitionFilter match {
@@ -162,17 +169,6 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
       }
     }
   }
-
-  /**
-    * Creates map of column names and its types
-    *
-    * @param tableName - name of table
-    * @return - map of column names and its types
-    */
-  private def getPartColumnTypes(tableName: String): Map[String, String] = {
-    val partColumns = hCatClient.getTable(databaseName, tableName).getPartCols.asScala
-    partColumns.map(column => column.getName -> column.getTypeInfo.getTypeName).toMap
-  }
 }
 
 object HiveMetastoreClient {
@@ -182,9 +178,13 @@ object HiveMetastoreClient {
   val defaultPartitionName: String = "rddid" //"batch_id"
   val dateFormat = "yyyy-MM-dd"
 
-  def apply(metastoreConnectionURL: String, metastoreConnectionDriverName: String,
-            metastoreUserName: String, metastorePassword: String, metastoreUris: String,
-            hiveDbName: String): HiveMetastoreClient = {
+  def apply
+    (metastoreConnectionURL: String,
+     metastoreConnectionDriverName: String,
+     metastoreUserName: String,
+     metastorePassword: String,
+     metastoreUris: String,
+     hiveDbName: String): HiveMetastoreClient = {
 
     val hadoopConfig = new Configuration()
     hadoopConfig.set("javax.jdo.option.ConnectionURL", metastoreConnectionURL)
