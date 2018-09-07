@@ -26,6 +26,15 @@ object Main extends App {
   val maxBatchId = myClient.getMaxBatchId(tableName)
   println(s"max batchId: $maxBatchId")
 
+  val maxBatchIdwithFilter = myClient.getMaxBatchId(tableName, "dateid", "2018-08-31-17-57")
+  println(s"max batchId with filter: $maxBatchIdwithFilter")
+
+  println(s"max batchId in partition: ${myClient.getMaxPartitionId(tableName, "dateid")}")
+
+  println(s"max batchId in partition with filter: ${myClient.getMaxPartitionId(tableName, "dateid", "dateid", "2018-08-31-17-57")}")
+
+  println(s"range of max batchIds with filter: ${myClient.getMaxPartitionIdRange(1535727470003L, tableName, "dateid", Some("dateid", "2018-08-31-17-57"))}")
+
   val maxDate = myClient.getMaxDate(tableName, "dateid")
   println(s"Max date id: $maxDate")
 
@@ -35,9 +44,6 @@ object Main extends App {
   val dateRange = myClient.getDateRange(tableName, 1535727470003L)
   println(s"Date map: $dateRange")
 
-  val maxBatchIdwithFilter = myClient.getMaxBatchId(tableName, "dateid", "2018-08-31-17-57")
-  println(s"max batchId with filter: $maxBatchIdwithFilter")
-
-  val dateRangeTwo = myClient.getDateRange(tableName, 1535727470003L, "rddid", "2018-08-31-17-57")
+  val dateRangeTwo = myClient.getDateRange(tableName, 1535727470003L, "dateid", "2018-08-31-17-57")
   println(s"Date map with filter: $dateRangeTwo")
 }
