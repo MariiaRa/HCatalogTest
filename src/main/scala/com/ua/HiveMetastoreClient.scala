@@ -33,7 +33,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
   }
 
   /**
-    * Retrieves max batchId from filtered partition
+    * Retrieves max batchId from selected partition
     *
     * @param tableName   - name of table
     * @param filterKey   - name of partition column
@@ -76,15 +76,40 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     }
   }
 
-  def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxBatchId(tableName)
+  /**
+    * Retrieves max batchId from selected partition column
+    *
+    * @param tableName     - name of table
+    * @param partitionName - name of partition column
+    * @return - max batchId in selected partition column
+    */
+  def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxBatchId(tableName) //another name for batchId?
 
+  /**
+    * Retrieves max batchId from filtered partition
+    *
+    * @param tableName     - name of table
+    * @param partitionName - name of partition column
+    * @param filterKey     - partition key
+    * @param filterValue   - partition value
+    * @return - max batchId from filtered partition
+    */
   def getMaxPartitionId(tableName: String, partitionName: String, filterKey: String, filterValue: String): Long = getMaxBatchId(tableName, filterKey, filterValue)
 
+  /**
+    * Retrieves batchId range from filtered partition sorted in ascending order
+    *
+    * @param fromBatchId   - value of batchId
+    * @param tableName     - name of table
+    * @param partitionName - name of partition column
+    * @param filter        - partition key & partition value
+    * @return - batchId range sorted in ascending order
+    */
   def getMaxPartitionIdRange(fromBatchId: Long, tableName: String, partitionName: String, filter: PartitionFilter = None): List[Long] =
     getBatchIdRange(fromBatchId, tableName, filter)
 
   /**
-    * Retrieves max date
+    * Retrieves max date from partition column
     *
     * @param tableName     - name of table
     * @param partitionName - name of partition column with date
@@ -112,16 +137,16 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
   }
 
   /**
-    * Retrieves map of dates and max batchId values for given date starting from specified batchId
+    * Retrieves map of dates and max batchId values from partition column starting from specified batchId
     *
     * @param tableName   - name of table
     * @param fromBatchId - value of batchId
-    * @param filterKey   -
-    * @param filterValue -
+    * @param filterKey   - partition key
+    * @param filterValue - partition value
     * @return - map of dates and max batchId values for given date starting from specified batchId
     */
   def getDateRange(tableName: String, fromBatchId: Long, filterKey: String, filterValue: String): Map[Date, Long] = {
-    val format = new SimpleDateFormat(dateFormat) //thread safe???
+    val format = new SimpleDateFormat(dateFormat)
     val partitionValues = getPartitionValues(tableName, None)
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
     val columnNames = getPartitionColumns(tableName)
@@ -132,6 +157,13 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
+  /**
+    * Retrieves map of dates and max batchId values starting from specified batchId
+    *
+    * @param tableName   - name of table
+    * @param fromBatchId - value of batchId
+    * @return - map of dates and max batchId values starting from specified batchId
+    */
   def getDateRange(tableName: String, fromBatchId: Long): Map[Date, Long] = {
     val partitionValues: List[List[String]] = getPartitionValues(tableName, None)
     val format = new SimpleDateFormat(dateFormat)
@@ -154,7 +186,8 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
   /**
     * Fetches list of all partitions in hive table
     *
-    * @param tableName - name of table
+    * @param tableName       - name of table
+    * @param partitionFilter - partition key & partition value
     * @return - list of all partition values in table
     */
   private def getPartitionValues(tableName: String, partitionFilter: Option[(String, String)]): List[List[String]] = {
@@ -178,13 +211,13 @@ object HiveMetastoreClient {
   val defaultPartitionName: String = "rddid" //"batch_id"
   val dateFormat = "yyyy-MM-dd"
 
-  def apply
-    (metastoreConnectionURL: String,
-     metastoreConnectionDriverName: String,
-     metastoreUserName: String,
-     metastorePassword: String,
-     metastoreUris: String,
-     hiveDbName: String): HiveMetastoreClient = {
+  def apply(
+      metastoreConnectionURL: String,
+      metastoreConnectionDriverName: String,
+      metastoreUserName: String,
+      metastorePassword: String,
+      metastoreUris: String,
+      hiveDbName: String): HiveMetastoreClient = {
 
     val hadoopConfig = new Configuration()
     hadoopConfig.set("javax.jdo.option.ConnectionURL", metastoreConnectionURL)
