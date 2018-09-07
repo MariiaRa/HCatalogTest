@@ -2,8 +2,10 @@ package com.ua
 
 
 import java.text.SimpleDateFormat
+import java.time.{Instant, LocalDate, ZoneId}
 import java.util.Date
 
+import com.ua.HiveMetastoreClient.dateFormat
 import org.apache.hive.hcatalog.api.{HCatPartition, HCatTable}
 import org.apache.hive.hcatalog.data.schema.HCatFieldSchema
 import org.apache.hive.hcatalog.data.schema.HCatFieldSchema.Type
@@ -27,20 +29,28 @@ class TestHCatClient(databaseName: String, tableName: String) {
   }
 
 
-  private def getPartition(): java.util.List[HCatPartition] = {
+  private def getPartition(partitionFilter: Option[(String, String)]): java.util.List[HCatPartition] = {
     val table = createTable(databaseName, tableName)
     val partition1 = new HCatPartition(table, partitionKeyValues1, path)
     val partition2 = new HCatPartition(table, partitionKeyValues2, path)
     val partition3 = new HCatPartition(table, partitionKeyValues3, path)
     val partition4 = new HCatPartition(table, partitionKeyValues4, path)
     val partition5 = new HCatPartition(table, partitionKeyValues5, path)
-    List[HCatPartition](partition1, partition2, partition3, partition4, partition5).asJava
+    val partition6 = new HCatPartition(table, partitionKeyValues6, path)
+    val partition7 = new HCatPartition(table, partitionKeyValues7, path)
+    val partitions = List[HCatPartition](partition1, partition2, partition3, partition4, partition5, partition6, partition7).asJava
+
+    partitionFilter match {
+      case Some((name: String, value: String)) => {
+        partitions.asScala.filter(_.getPartitionKeyValMap.asScala.exists(_ == name -> value)).asJava
+      }
+      case None => partitions
+    }
   }
 
 
   def getMaxBatchId(): Long = {
-    val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
-
+    val partitionValues = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
       .filter { case (value, columnName) => columnName == batchIdPartitionName }
@@ -49,57 +59,86 @@ class TestHCatClient(databaseName: String, tableName: String) {
     columnsData.max
   }
 
-  def getMaxBatchIdRange(fromBatchId: Long): List[Long] = {
-    val partitionValues = getPartition().asScala.map(_.getValues.asScala.toList).toList
 
+  def getMaxBatchId(filterKey: String, filterValue: String): Long = {
+    val partitionValues = getPartition(Some(filterKey, filterValue)).asScala.map(_.getValues.asScala.toList).toList
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
       .filter { case (value, columnName) => columnName == batchIdPartitionName }
       .map { case (value, columnName) => value.toLong }
-      .dropWhile(value => !(value == fromBatchId))
 
-    columnsData.sortWith(_ < _)
+    columnsData.max
   }
 
-  def getMaxDate(partitionName: String, format: String): Date = {
-    val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
+  def getBatchIdRange(fromBatchId: Long, filter: PartitionFilter = None): List[Long] = {
+    val partitionValues = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
+    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+    filter match {
+      case Some((name: String, value: String)) => {
+        xs
+          .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
+          .sortWith(_.last._1.toLong < _.last._1.toLong)
+          .map(_.last._1.toLong)
+      }
+      case None => xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
+    }
+  }
+
+  def getMaxPartitionId(partitionName: String, filterKey: String, filterValue: String): Long = getMaxBatchId(filterKey, filterValue)
+
+  def getMaxPartitionId(partitionName: String): Long = getMaxBatchId()
+
+  def getMaxPartitionIdRange(fromBatchId: Long, partitionName: String, filter: PartitionFilter = None): List[Long] =
+    getBatchIdRange(fromBatchId, filter)
+
+
+  def getMaxDate(partitionName: String): Option[LocalDate] = {
+    val partitionValues: List[List[String]] = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
     val dateFormat = new SimpleDateFormat(format)
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
-      .filter { case (value, columnName) => columnName == datePartitionName }
+      .filter { case (value, columnName) => columnName == partitionName }
       .map { case (value, columnName) => dateFormat.parse(value) }
 
-    columnsData.max
-  }
-
-  def getDateRange(fromBatchId: Long, format: String) = {
-    val partitionValues: List[List[String]] = getPartition().asScala.map(_.getValues.asScala.toList).toList
-
-    val convertedList = convertColumnType(partitionValues, format)
-      .sortWith(_.last.asInstanceOf[Long] < _.last.asInstanceOf[Long])
-      .dropWhile(list => !list.contains(fromBatchId)).map(list => list.head -> list.last).toMap
-
-    convertedList
-  }
-
-  private def convertColumnType(list: List[List[String]], format: String) = {
-
-    val dateFormat = new SimpleDateFormat(format)
-
-    list.map(listOfValues => listOfValues.zip(partColumnsNames)).map { listOfTuples =>
-      listOfTuples.map { case (value, columnName) =>
-        mapOfTypes(columnName) match {
-          case "string" => dateFormat.parse(value)
-          case "bigint" => value.toLong
-          case _ => value
-        }
-      }
+    if (columnsData.nonEmpty) {
+      Some(
+        Instant.ofEpochMilli(
+          columnsData.max.getTime
+        ).atZone(ZoneId.systemDefault()).toLocalDate)
     }
+    else {
+      None
+    }
+  }
+
+  def getDateRange(fromBatchId: Long, filterKey: String, filterValue: String): Map[Date, Long] = {
+    val partitionValues = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
+    val format = new SimpleDateFormat(dateFormat)
+    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+
+    xs
+      .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
+      .sortWith(_.last._1.toLong < _.last._1.toLong)
+      .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
+  }
+
+
+  def getDateRange(fromBatchId: Long): Map[Date, Long] = {
+    val partitionValues: List[List[String]] = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
+
+    val format = new SimpleDateFormat(dateFormat)
+    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+
+    xs.sortWith(_.last.toLong < _.last.toLong).map(list => format.parse(list.head) -> list.last.toLong).toMap
   }
 }
 
 object TestHCatClient {
+  type FilterKey = String
+  type FilterValue = String
+  type PartitionFilter = Option[(FilterKey, FilterValue)]
+  val format = "yyyy-MM-dd"
   val batchIdPartitionName: String = "batch_id"
   val datePartitionName: String = "date"
   val partColumnsNames = List(datePartitionName, batchIdPartitionName)
@@ -108,6 +147,9 @@ object TestHCatClient {
   val partitionKeyValues3 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727445003").asJava
   val partitionKeyValues4 = Map[String, String](datePartitionName -> "2018-08-31-17-57", batchIdPartitionName -> "1535727420003").asJava
   val partitionKeyValues5 = Map[String, String](datePartitionName -> "2018-08-31-15-42", batchIdPartitionName -> "1535719375004").asJava
+  val partitionKeyValues6 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613940012").asJava
+  val partitionKeyValues7 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613930061").asJava
   val path = "path/file"
   val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
 }
+
