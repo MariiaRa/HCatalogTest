@@ -64,7 +64,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
     val columnNames = getPartitionColumns(tableName)
 
-    filter match {
+    filter match {  // this looks ugly
       case Some((name: String, value: String)) => {
         val columnNames = getPartitionColumns(tableName)
         xs
@@ -72,7 +72,9 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
           .sortWith(_.last._1.toLong < _.last._1.toLong)
           .map(_.last._1.toLong)
       }
-      case None => xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
+      case None => {
+        xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
+      }
     }
   }
 
