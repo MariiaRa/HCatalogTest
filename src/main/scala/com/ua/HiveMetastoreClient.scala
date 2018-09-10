@@ -62,7 +62,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * Retrieves max batchId from selected partition column
     *
     * @param tableName     - name of table
-    * @param partitionName - name of partition column
+    * @param partitionName - name of partition column with batch ids
     * @return              - max batchId in selected partition column
     */
   def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxPartitionValue(tableName, partitionName, None)
@@ -71,7 +71,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * Retrieves max batchId from filtered partition
     *
     * @param tableName     - name of table
-    * @param partitionName - name of partition column
+    * @param partitionName - name of partition column with batch ids
     * @param filterKey     - partition key
     * @param filterValue   - partition value
     * @return              - max batchId from filtered partition
@@ -83,7 +83,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     *
     * @param fromBatchId   - value of batchId
     * @param tableName     - name of table
-    * @param partitionName - name of partition column
+    * @param partitionName - name of partition column with batch ids
     * @param filter        - partition key & partition value
     * @return              - batchId range sorted in ascending order
     */
@@ -185,6 +185,14 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     }
   }
 
+  /**
+    * Retrieves max batchId from selected partition
+    *
+    * @param tableName       - name of table
+    * @param partitionName   - name of partition column with batch ids (could be default name "batch_id" or some other name)
+    * @param partitionFilter - partition key & partition value
+    * @return                - max batchId in partition column
+    */
   private def getMaxPartitionValue(tableName: String, partitionName: String, partitionFilter: Option[(String, String)]): Long = {
     val partitionValues = getPartitionValues(tableName, partitionFilter)
     val columnNames = getPartitionColumns(tableName)
