@@ -20,17 +20,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param tableName - name of table
     * @return - max value of batchId
     */
-  def getMaxBatchId(tableName: String): Long = {
-    val partitionValues = getPartitionValues(tableName, None)
-    val columnNames = getPartitionColumns(tableName)
-
-    val columnsData = partitionValues
-      .flatMap(value => value.zip(columnNames))
-      .filter { case (value, columnName) => columnName == defaultPartitionName }
-      .map { case (value, columnName) => value.toLong }
-
-    columnsData.max
-  }
+  def getMaxBatchId(tableName: String): Long = getMaxPartitonValue(tableName, "", None)
 
   /**
     * Retrieves max batchId from selected partition
@@ -40,17 +30,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param filterValue - value of partition column
     * @return - max batchId from filtered partition
     */
-  def getMaxBatchId(tableName: String, filterKey: String, filterValue: String): Long = {
-    val partitionValues = getPartitionValues(tableName, Some(filterKey, filterValue))
-    val columnNames = getPartitionColumns(tableName)
-
-    val columnsData = partitionValues
-      .flatMap(value => value.zip(columnNames))
-      .filter { case (value, columnName) => columnName == defaultPartitionName }
-      .map { case (value, columnName) => value.toLong }
-
-    columnsData.max
-  }
+  def getMaxBatchId(tableName: String, filterKey: String, filterValue: String): Long = getMaxPartitonValue(tableName, "", Some(filterKey, filterValue))
 
   /**
     * Retrieves list of batchId starting from given value
@@ -64,12 +44,12 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
     val columnNames = getPartitionColumns(tableName)
 
-    filter match {  // this looks ugly
+    filter match { // this looks ugly
       case Some((name: String, value: String)) => {
         val columnNames = getPartitionColumns(tableName)
         xs
           .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
-          .sortWith(sortByBatchID(_ , _))
+          .sortWith(sortByBatchID(_, _))
           .map(_.last._1.toLong)
       }
       case None => {
@@ -85,7 +65,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param partitionName - name of partition column
     * @return - max batchId in selected partition column
     */
-  def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxBatchId(tableName) //another name for batchId?
+  def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxPartitonValue(tableName, partitionName, None)
 
   /**
     * Retrieves max batchId from filtered partition
@@ -96,7 +76,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param filterValue   - partition value
     * @return - max batchId from filtered partition
     */
-  def getMaxPartitionId(tableName: String, partitionName: String, filterKey: String, filterValue: String): Long = getMaxBatchId(tableName, filterKey, filterValue)
+  def getMaxPartitionId(tableName: String, partitionName: String, filterKey: String, filterValue: String): Long = getMaxPartitonValue(tableName, partitionName, Some(filterKey, filterValue))
 
   /**
     * Retrieves batchId range from filtered partition sorted in ascending order
@@ -155,7 +135,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
     xs
       .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(sortByBatchID(_ , _))
+      .sortWith(sortByBatchID(_, _))
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
@@ -205,11 +185,35 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     }
   }
 
-  private def sortByBatchID(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = {
-    if(inputOne.last._1.toLong < inputTwo.last._1.toLong) true
-    else false
+
+  private def getMaxPartitonValue(tableName: String, partitionName: String, filter: PartitionFilter): Long = {
+    partitionName match {
+      case "" => {
+        val partitionValues = getPartitionValues(tableName, filter)
+        val columnNames = getPartitionColumns(tableName)
+
+        val columnsData = partitionValues
+          .flatMap(value => value.zip(columnNames))
+          .filter { case (value, columnName) => columnName == defaultPartitionName }
+          .map { case (value, columnName) => value.toLong }
+
+        columnsData.max
+      }
+      case partitionName: String => {
+        val partitionValues = getPartitionValues(tableName, filter)
+        val columnNames = getPartitionColumns(tableName)
+
+        val columnsData = partitionValues
+          .flatMap(value => value.zip(columnNames))
+          .filter { case (value, columnName) => columnName == partitionName }
+          .map { case (value, columnName) => value.toLong }
+
+        columnsData.max
+      }
+    }
   }
 
+  private def sortByBatchID(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
 }
 
 object HiveMetastoreClient {
