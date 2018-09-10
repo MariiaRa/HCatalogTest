@@ -59,7 +59,7 @@ class TestHCatClient(databaseName: String, tableName: String) {
     columnsData.max
   }
 
-  private def sortByBatchID(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
+  private def sortByBatchId(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
 
   def getMaxBatchId(): Long = getMaxPartitionValue(batchIdPartitionName, None)
 
@@ -72,7 +72,7 @@ class TestHCatClient(databaseName: String, tableName: String) {
       case Some((name: String, value: String)) => {
         xs
           .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
-          .sortWith(sortByBatchID(_, _))
+          .sortWith(sortByBatchId(_, _))
           .map(_.last._1.toLong)
       }
       case None => xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
@@ -114,7 +114,7 @@ class TestHCatClient(databaseName: String, tableName: String) {
 
     xs
       .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(sortByBatchID(_, _))
+      .sortWith(sortByBatchId(_, _))
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
