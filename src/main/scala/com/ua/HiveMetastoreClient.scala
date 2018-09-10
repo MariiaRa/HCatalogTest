@@ -20,7 +20,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param tableName - name of table
     * @return - max value of batchId
     */
-  def getMaxBatchId(tableName: String): Long = getMaxPartitonValue(tableName, "", None)
+  def getMaxBatchId(tableName: String): Long = getMaxPartitionId(tableName, defaultPartitionName)
 
   /**
     * Retrieves max batchId from selected partition
@@ -30,7 +30,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param filterValue - value of partition column
     * @return - max batchId from filtered partition
     */
-  def getMaxBatchId(tableName: String, filterKey: String, filterValue: String): Long = getMaxPartitonValue(tableName, "", Some(filterKey, filterValue))
+  def getMaxBatchId(tableName: String, filterKey: String, filterValue: String): Long = getMaxPartitionId(tableName, defaultPartitionName, filterKey, filterValue)
 
   /**
     * Retrieves list of batchId starting from given value
@@ -65,7 +65,17 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param partitionName - name of partition column
     * @return - max batchId in selected partition column
     */
-  def getMaxPartitionId(tableName: String, partitionName: String): Long = getMaxPartitonValue(tableName, partitionName, None)
+  def getMaxPartitionId(tableName: String, partitionName: String): Long = {
+    val partitionValues = getPartitionValues(tableName, None)
+    val columnNames = getPartitionColumns(tableName)
+
+    val columnsData = partitionValues
+      .flatMap(value => value.zip(columnNames))
+      .filter { case (value, columnName) => columnName == partitionName }
+      .map { case (value, columnName) => value.toLong }
+
+    columnsData.max
+  }
 
   /**
     * Retrieves max batchId from filtered partition
@@ -76,8 +86,17 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param filterValue   - partition value
     * @return - max batchId from filtered partition
     */
-  def getMaxPartitionId(tableName: String, partitionName: String, filterKey: String, filterValue: String): Long = getMaxPartitonValue(tableName, partitionName, Some(filterKey, filterValue))
+  def getMaxPartitionId(tableName: String, partitionName: String, filterKey: String, filterValue: String): Long = {
+    val partitionValues = getPartitionValues(tableName, Some(filterKey, filterValue))
+    val columnNames = getPartitionColumns(tableName)
 
+    val columnsData = partitionValues
+      .flatMap(value => value.zip(columnNames))
+      .filter { case (value, columnName) => columnName == partitionName }
+      .map { case (value, columnName) => value.toLong }
+
+    columnsData.max
+  }
   /**
     * Retrieves batchId range from filtered partition sorted in ascending order
     *
