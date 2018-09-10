@@ -2,17 +2,11 @@ package com.ua
 
 
 import com.typesafe.config.{Config, ConfigFactory}
-import org.apache.hadoop.conf.Configuration
-
 
 object Main extends App {
-
   val myConf: Config = ConfigFactory.load()
-  val dbName = myConf.getString("hive.database")
   val tableName = myConf.getString("hive.table")
-  val columnName = myConf.getString("hive.column")
-  val dateFormat = "yyyy-MM-dd"
-  val hadoopConfig = new Configuration()
+  val dbName = myConf.getString("hive.database")
 
   val myClient = HiveMetastoreClient.apply(
     "jdbc:postgresql://hive-metastore-postgresql/metastore",
@@ -20,7 +14,7 @@ object Main extends App {
     "hive",
     "hive",
     "thrift://hive-metastore:9083",
-    "default"
+    dbName
   )
 
   val maxBatchId = myClient.getMaxBatchId(tableName)
@@ -51,4 +45,16 @@ object Main extends App {
 
   val dateRangeTwo = myClient.getDateRange(tableName, 1535727470003L, "dateid", "2018-08-31-17-57")
   println(s"Date map with filter: $dateRangeTwo")
+
+  /* val configsHive = new HiveConf
+   configsHive.set("javax.jdo.option.ConnectionURL", "jdbc:postgresql://hive-metastore-postgresql/metastore")
+   configsHive.set("javax.jdo.option.ConnectionDriverName", "org.postgresql.Driver")
+   configsHive.set("javax.jdo.option.ConnectionPassword", "hive")
+   configsHive.set("javax.jdo.option.ConnectionUserName", "hive")
+   configsHive.set("hive.metastore.uris", "thrift://hive-metastore:9083")
+   val metastoreClient = new HiveMetaStoreClient(configsHive)
+
+   println("All tables from db: " + metastoreClient.getAllTables("default"))
+   println("All partition values: " + metastoreClient.listPartitions("default", tableName, -1).asScala.toList.map(_.getValues))*/
+
 }
