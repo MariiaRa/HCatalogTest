@@ -69,7 +69,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
         val columnNames = getPartitionColumns(tableName)
         xs
           .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
-          .sortWith(_.last._1.toLong < _.last._1.toLong)
+          .sortWith(sortByBatchID(_ , _))
           .map(_.last._1.toLong)
       }
       case None => {
@@ -155,7 +155,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
     xs
       .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(_.last._1.toLong < _.last._1.toLong)
+      .sortWith(sortByBatchID(_ , _))
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
@@ -204,6 +204,12 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
       }
     }
   }
+
+  private def sortByBatchID(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = {
+    if(inputOne.last._1.toLong < inputTwo.last._1.toLong) true
+    else false
+  }
+
 }
 
 object HiveMetastoreClient {
