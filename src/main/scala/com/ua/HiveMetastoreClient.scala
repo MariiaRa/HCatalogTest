@@ -204,34 +204,6 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     }
   }
 
-
-  private def getMaxPartitonValue(tableName: String, partitionName: String, filter: PartitionFilter): Long = {
-    partitionName match {
-      case "" => {
-        val partitionValues = getPartitionValues(tableName, filter)
-        val columnNames = getPartitionColumns(tableName)
-
-        val columnsData = partitionValues
-          .flatMap(value => value.zip(columnNames))
-          .filter { case (value, columnName) => columnName == defaultPartitionName }
-          .map { case (value, columnName) => value.toLong }
-
-        columnsData.max
-      }
-      case partitionName: String => {
-        val partitionValues = getPartitionValues(tableName, filter)
-        val columnNames = getPartitionColumns(tableName)
-
-        val columnsData = partitionValues
-          .flatMap(value => value.zip(columnNames))
-          .filter { case (value, columnName) => columnName == partitionName }
-          .map { case (value, columnName) => value.toLong }
-
-        columnsData.max
-      }
-    }
-  }
-
   private def sortByBatchID(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
 }
 
