@@ -26,7 +26,7 @@ class HiveMetastoreClientSuite extends FunSuite {
   private val myHCatclient = new TestHCatClient(databaseName, tableName)
 
   test("getMaxBatchId(valid table) returns max batchId") {
-    val actualMaxBatchId = myHCatclient.getMaxBatchId()
+    val actualMaxBatchId = myHCatclient.getMaxBatchId
     assert(expectedMaxBatchId === actualMaxBatchId)
   }
 
