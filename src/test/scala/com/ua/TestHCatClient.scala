@@ -41,9 +41,9 @@ class TestHCatClient(databaseName: String, tableName: String) {
     val partitions = List[HCatPartition](partition1, partition2, partition3, partition4, partition5, partition6, partition7).asJava
 
     partitionFilter match {
-      case Some((name: String, value: String)) => {
+      case Some((name: String, value: String)) =>
         partitions.asScala.filter(_.getPartitionKeyValMap.asScala.exists(_ == name -> value)).asJava
-      }
+
       case None => partitions
     }
   }
@@ -53,15 +53,15 @@ class TestHCatClient(databaseName: String, tableName: String) {
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
-      .filter { case (value, columnName) => columnName == partitionName }
-      .map { case (value, columnName) => value.toLong }
+      .filter { case (_, columnName) => columnName == partitionName }
+      .map { case (value, _) => value.toLong }
 
     columnsData.max
   }
 
   private def sortByBatchId(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
 
-  def getMaxBatchId(): Long = getMaxPartitionValue(batchIdPartitionName, None)
+  def getMaxBatchId: Long = getMaxPartitionValue(batchIdPartitionName, None)
 
   def getMaxBatchId(filterKey: String, filterValue: String): Long = getMaxPartitionValue(batchIdPartitionName, Some(filterKey, filterValue))
 
@@ -76,19 +76,19 @@ class TestHCatClient(databaseName: String, tableName: String) {
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
 
     filter match {
-      case Some((name: String, value: String)) => {
+      case Some((name: String, value: String)) =>
         xs
           .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((value, name)) & listOfTuples.last._2 == partitionName)
-          .sortWith(sortByBatchId(_, _))
+          .sortWith(sortByBatchId)
           .map(_.last._1.toLong)
-      }
-      case None => {
+
+      case None =>
         xs
           .flatMap(value => value.zip(partColumnsNames))
           .filter { case (_, columnName) => columnName == partitionName }
           .map { case (value, _) => value.toLong }
           .sortWith(_ < _)
-      }
+
     }
   }
 
@@ -98,8 +98,8 @@ class TestHCatClient(databaseName: String, tableName: String) {
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
-      .filter { case (value, columnName) => columnName == partitionName }
-      .map { case (value, columnName) => dateFormat.parse(value) }
+      .filter { case (_, columnName) => columnName == partitionName }
+      .map { case (value, _) => dateFormat.parse(value) }
 
     if (columnsData.nonEmpty) {
       Some(
@@ -119,7 +119,7 @@ class TestHCatClient(databaseName: String, tableName: String) {
 
     xs
       .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(sortByBatchId(_, _))
+      .sortWith(sortByBatchId)
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
@@ -150,6 +150,5 @@ object TestHCatClient {
   val partitionKeyValues6 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613940012").asJava
   val partitionKeyValues7 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613930061").asJava
   val path = "path/file"
-  // val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
 }
 
