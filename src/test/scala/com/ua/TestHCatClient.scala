@@ -48,49 +48,49 @@ class TestHCatClient(databaseName: String, tableName: String) {
     }
   }
 
+  private def getMaxPartitionValue(partitionName: String, partitionFilter: Option[(String, String)]): Long = {
+    val partitionValues = getPartition(partitionFilter).asScala.map(_.getValues.asScala.toList).toList
 
-  def getMaxBatchId(): Long = {
-    val partitionValues = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
     val columnsData = partitionValues
       .flatMap(value => value.zip(partColumnsNames))
-      .filter { case (value, columnName) => columnName == batchIdPartitionName }
+      .filter { case (value, columnName) => columnName == partitionName }
       .map { case (value, columnName) => value.toLong }
 
     columnsData.max
   }
 
+  private def sortByBatchId(inputOne: List[(String, String)], inputTwo: List[(String, String)]): Boolean = inputOne.last._1.toLong < inputTwo.last._1.toLong
 
-  def getMaxBatchId(filterKey: String, filterValue: String): Long = {
-    val partitionValues = getPartition(Some(filterKey, filterValue)).asScala.map(_.getValues.asScala.toList).toList
-    val columnsData = partitionValues
-      .flatMap(value => value.zip(partColumnsNames))
-      .filter { case (value, columnName) => columnName == batchIdPartitionName }
-      .map { case (value, columnName) => value.toLong }
+  def getMaxBatchId(): Long = getMaxPartitionValue(batchIdPartitionName, None)
 
-    columnsData.max
-  }
+  def getMaxBatchId(filterKey: String, filterValue: String): Long = getMaxPartitionValue(batchIdPartitionName, Some(filterKey, filterValue))
 
-  def getBatchIdRange(fromBatchId: Long, filter: PartitionFilter = None): List[Long] = {
+  def getBatchIdRange(fromBatchId: Long, filter: PartitionFilter = None): List[Long] = getMaxPartitionIdRange(fromBatchId, batchIdPartitionName, filter)
+
+  def getMaxPartitionId(partitionName: String, filterKey: String, filterValue: String): Long = getMaxPartitionValue(partitionName, Some(filterKey, filterValue))
+
+  def getMaxPartitionId(partitionName: String): Long = getMaxPartitionValue(partitionName, None)
+
+  def getMaxPartitionIdRange(fromBatchId: Long, partitionName: String, filter: PartitionFilter = None): List[Long] = {
     val partitionValues = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+
     filter match {
       case Some((name: String, value: String)) => {
         xs
-          .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
-          .sortWith(_.last._1.toLong < _.last._1.toLong)
+          .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((value, name)) & listOfTuples.last._2 == partitionName)
+          .sortWith(sortByBatchId(_, _))
           .map(_.last._1.toLong)
       }
-      case None => xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
+      case None => {
+        xs
+          .flatMap(value => value.zip(partColumnsNames))
+          .filter { case (_, columnName) => columnName == partitionName }
+          .map { case (value, _) => value.toLong }
+          .sortWith(_ < _)
+      }
     }
   }
-
-  def getMaxPartitionId(partitionName: String, filterKey: String, filterValue: String): Long = getMaxBatchId(filterKey, filterValue)
-
-  def getMaxPartitionId(partitionName: String): Long = getMaxBatchId()
-
-  def getMaxPartitionIdRange(fromBatchId: Long, partitionName: String, filter: PartitionFilter = None): List[Long] =
-    getBatchIdRange(fromBatchId, filter)
-
 
   def getMaxDate(partitionName: String): Option[LocalDate] = {
     val partitionValues: List[List[String]] = getPartition(None).asScala.map(_.getValues.asScala.toList).toList
@@ -119,7 +119,7 @@ class TestHCatClient(databaseName: String, tableName: String) {
 
     xs
       .map(value => value.zip(partColumnsNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(_.last._1.toLong < _.last._1.toLong)
+      .sortWith(sortByBatchId(_, _))
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
@@ -150,6 +150,6 @@ object TestHCatClient {
   val partitionKeyValues6 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613940012").asJava
   val partitionKeyValues7 = Map[String, String](datePartitionName -> "2018-08-30-10-25", batchIdPartitionName -> "1535613930061").asJava
   val path = "path/file"
-  val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
+  // val mapOfTypes = Map(datePartitionName -> "string", batchIdPartitionName -> "bigint")
 }
 

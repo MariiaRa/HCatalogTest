@@ -41,22 +41,22 @@ class HiveMetastoreClientSuite extends FunSuite {
   }
 
   test("getMaxPartitionId(valid table, partitionName, filterKey, filterValue) returns max batchId in partition") {
-    val actualMaxPartitionIdResult = myHCatclient.getMaxPartitionId("date", "date", "2018-08-31-17-57")
+    val actualMaxPartitionIdResult = myHCatclient.getMaxPartitionId("batch_id", "date", "2018-08-31-17-57")
     assert(expectedMaxBatchId === actualMaxPartitionIdResult)
   }
 
   test("getMaxPartitionId(valid table, partitionName) returns max batchId in partition") {
-    val actualMaxPartitionIdResult = myHCatclient.getMaxPartitionId("date")
+    val actualMaxPartitionIdResult = myHCatclient.getMaxPartitionId("batch_id")
     assert(expectedMaxBatchId === actualMaxPartitionIdResult)
   }
 
   test("getMaxPartitionId(valid table, partitionName, filter) returns max batchId in partition with filter") {
-    val actualBatchIdRangeResult = myHCatclient.getMaxPartitionIdRange(1535727420003L, "date", Some("date", "2018-08-30-10-25"))
+    val actualBatchIdRangeResult = myHCatclient.getMaxPartitionIdRange(1535727420003L, "batch_id", Some("date", "2018-08-30-10-25"))
     assert(expectedBatchIdRangeWithFilter === actualBatchIdRangeResult)
   }
 
   test("getMaxPartitionId(valid table, partitionName, filter=None) returns max batchId in partition") {
-    val actualBatchIdRangeResult = myHCatclient.getMaxPartitionIdRange(1535727420003L, "date", None)
+    val actualBatchIdRangeResult = myHCatclient.getMaxPartitionIdRange(1535727420003L, "batch_id", None)
     assert(expectedBatchIdRangeNoFilter === actualBatchIdRangeResult)
   }
 
