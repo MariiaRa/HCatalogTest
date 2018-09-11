@@ -33,32 +33,6 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
   def getMaxBatchId(tableName: String, filterKey: String, filterValue: String): Long = getMaxPartitionValue(tableName, defaultPartitionName, Some(filterKey, filterValue))
 
   /**
-    * Retrieves list of batchId starting from given value
-    *
-    * @param tableName   - name of table
-    * @param fromBatchId - value of batchId
-    * @return            - batchId range sorted in ascending order
-    */
-  def getBatchIdRange(fromBatchId: Long, tableName: String, filter: PartitionFilter = None): List[Long] = {
-    val partitionValues = getPartitionValues(tableName, None)
-    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
-    val columnNames = getPartitionColumns(tableName)
-
-    filter match {
-      case Some((name: String, value: String)) => {
-        val columnNames = getPartitionColumns(tableName)
-        xs
-          .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)))
-          .sortWith(sortByBatchId(_, _))
-          .map(_.last._1.toLong)
-      }
-      case None => {
-        xs.sortWith(_.last.toLong < _.last.toLong).map(_.last.toLong)
-      }
-    }
-  }
-
-  /**
     * Retrieves max batchId from selected partition column
     *
     * @param tableName     - name of table
@@ -87,8 +61,36 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     * @param filter        - partition key & partition value
     * @return              - batchId range sorted in ascending order
     */
-  def getMaxPartitionIdRange(fromBatchId: Long, tableName: String, partitionName: String, filter: PartitionFilter = None): List[Long] =
-    getBatchIdRange(fromBatchId, tableName, filter)
+  def getMaxPartitionIdRange(fromBatchId: Long, tableName: String, partitionName: String, filter: PartitionFilter = None): List[Long] = {
+    val partitionValues = getPartitionValues(tableName, None)
+    val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
+    val columnNames = getPartitionColumns(tableName)
+    filter match {
+      case Some((name: String, value: String)) => {
+        xs
+          .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)) & listOfTuples.last._2 == partitionName)
+          .sortWith(sortByBatchId(_, _))
+          .map(_.last._1.toLong)
+      }
+      case None => {
+        xs
+          .flatMap(value => value.zip(columnNames))
+          .filter { case (_, columnName) => columnName == partitionName }
+          .map { case (value, _) => value.toLong }
+          .sortWith(_ < _)
+      }
+    }
+  }
+
+  /**
+    * Retrieves list of batchId starting from given value
+    *
+    * @param tableName   - name of table
+    * @param fromBatchId - value of batchId
+    * @return            - batchId range sorted in ascending order
+    */
+  def getBatchIdRange(fromBatchId: Long, tableName: String, filter: PartitionFilter = None): List[Long] = getMaxPartitionIdRange(fromBatchId, tableName, defaultPartitionName, filter)
+
 
   /**
     * Retrieves max date from partition column
