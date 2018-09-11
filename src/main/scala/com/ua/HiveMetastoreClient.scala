@@ -66,19 +66,18 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     val xs = partitionValues.dropWhile(list => !(list.last.toLong == fromBatchId))
     val columnNames = getPartitionColumns(tableName)
     filter match {
-      case Some((name: String, value: String)) => {
+      case Some((name: String, value: String)) =>
         xs
           .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((value, name)) & listOfTuples.last._2 == partitionName)
-          .sortWith(sortByBatchId(_, _))
+          .sortWith(sortByBatchId)
           .map(_.last._1.toLong)
-      }
-      case None => {
+
+      case None =>
         xs
           .flatMap(value => value.zip(columnNames))
           .filter { case (_, columnName) => columnName == partitionName }
           .map { case (value, _) => value.toLong }
           .sortWith(_ < _)
-      }
     }
   }
 
@@ -106,8 +105,8 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
-      .filter { case (value, columnName) => columnName == partitionName }
-      .map { case (value, columnName) => format.parse(value) }
+      .filter { case (_, columnName) => columnName == partitionName }
+      .map { case (value, _) => format.parse(value) }
 
     if (columnsData.nonEmpty) {
       Some(
@@ -137,7 +136,7 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
     xs
       .map(value => value.zip(columnNames)).filter(listOfTuples => listOfTuples.contains((filterValue, filterKey)))
-      .sortWith(sortByBatchId(_, _))
+      .sortWith(sortByBatchId)
       .map(list => format.parse(list.head._1) -> list.last._1.toLong).toMap
   }
 
@@ -176,14 +175,13 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
     */
   private def getPartitionValues(tableName: String, partitionFilter: Option[(String, String)]): List[List[String]] = {
     partitionFilter match {
-      case Some((name: String, value: String)) => {
+      case Some((name: String, value: String)) =>
         val partitions = hCatClient.getPartitions(databaseName, tableName, Map[String, String](name -> value).asJava).asScala
         partitions.map(_.getValues.asScala.toList).toList
-      }
-      case _ => {
+
+      case _ =>
         val partitions = hCatClient.getPartitions(databaseName, tableName).asScala
         partitions.map(_.getValues.asScala.toList).toList
-      }
     }
   }
 
@@ -201,8 +199,8 @@ class HiveMetastoreClient(hCatClient: HCatClient, databaseName: String) {
 
     val columnsData = partitionValues
       .flatMap(value => value.zip(columnNames))
-      .filter { case (value, columnName) => columnName == partitionName }
-      .map { case (value, columnName) => value.toLong }
+      .filter { case (_, columnName) => columnName == partitionName }
+      .map { case (value, _) => value.toLong }
 
     columnsData.max
   }
