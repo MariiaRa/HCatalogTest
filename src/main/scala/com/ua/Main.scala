@@ -28,7 +28,7 @@ object Main extends App {
 
   println(s"Max batchId in partition with filter: ${myClient.getMaxPartitionId(tableName, "rddid", "dateid", "2018-08-31-17-57")}")
 
-  println(s"Range of max batchIds with filter: ${myClient.getMaxPartitionIdRange(1535727470003L, tableName, "dateid", Some("dateid", "2018-08-31-17-57"))}")
+  println(s"Range of max batchIds with filter: ${myClient.getMaxPartitionIdRange(1535727470003L, tableName, "rddid", Some("dateid", "2018-08-31-17-57"))}")
 
   val maxDate = myClient.getMaxDate(tableName, "dateid")
   println(s"Max date id: $maxDate")
